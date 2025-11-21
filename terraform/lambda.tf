@@ -20,7 +20,8 @@ module "analyzer_lambda" {
   function_name = "fitcheck-analyzer"
   role_arn      = module.iam.role_arn
   image_uri     = var.analyzer_image_uri
-  timeout       = 300 # 5 minutes
+  timeout       = 300  # 5 minutes
+  memory_size   = 1024 # 1 GB for gensim/numpy/nltk
   environment_variables = {
     GEMINI_SECRET_NAME = "gemini-key"
     APP_CLIENT_SECRET  = var.app_client_secret

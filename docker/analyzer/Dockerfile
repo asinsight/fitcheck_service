@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir \
     pypdf==3.17.4 \
     numpy==1.26.4 \
     gensim==4.3.2 \
+    scipy==1.10.1 \
     nltk \
     boto3
 
