@@ -19,7 +19,7 @@ resource "aws_lambda_function_url" "this" {
   cors {
     allow_credentials = true
     allow_origins     = var.allowed_origins
-    allow_methods     = ["POST", "OPTIONS"]
+    allow_methods     = var.allowed_methods
     allow_headers     = ["Content-Type", "x-fitcheck-auth"]
     max_age           = 86400
   }

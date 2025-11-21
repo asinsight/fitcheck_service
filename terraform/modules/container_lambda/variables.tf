@@ -36,3 +36,9 @@ variable "allowed_origins" {
   type        = list(string)
   default     = ["*"]
 }
+
+variable "allowed_methods" {
+  description = "List of allowed HTTP methods for the Lambda Function URL CORS configuration"
+  type        = list(string)
+  default     = ["POST"]
+}
