@@ -1,3 +1,13 @@
+variable "scraper_image_uri" {
+  description = "Full ECR image URI (including tag) for the scraper Lambda"
+  type        = string
+}
+
+variable "analyzer_image_uri" {
+  description = "Full ECR image URI (including tag) for the analyzer Lambda"
+  type        = string
+}
+
 variable "app_client_secret" {
   description = "Application client secret for Lambda authentication"
   type        = string
