@@ -1,5 +1,5 @@
 module "apigateway" {
-  source                = "../modules/apigateway"
+  source                = "./modules/apigateway"
   scraper_invoke_arn    = module.scraper_lambda.invoke_arn
   scraper_function_name = module.scraper_lambda.function_name
 }

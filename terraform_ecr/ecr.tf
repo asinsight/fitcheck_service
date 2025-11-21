@@ -4,12 +4,12 @@ provider "aws" {
 }
 
 module "scraper_repo" {
-  source    = "../modules/ecr_repo"
+  source    = "./modules/ecr_repo"
   repo_name = "fitcheck-scraper-repo"
 }
 
 module "analyzer_repo" {
-  source    = "../modules/ecr_repo"
+  source    = "./modules/ecr_repo"
   repo_name = "fitcheck-analyzer-repo"
 }
 

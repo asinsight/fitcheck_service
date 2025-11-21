@@ -3,19 +3,11 @@ provider "aws" {
   profile = "swiri021"
 }
 
-data "aws_ecr_repository" "scraper_repo" {
-  name = "fitcheck-scraper-repo"
-}
-
-data "aws_ecr_repository" "analyzer_repo" {
-  name = "fitcheck-analyzer-repo"
-}
-
 module "scraper_lambda" {
-  source        = "../modules/container_lambda"
+  source        = "./modules/container_lambda"
   function_name = "fitcheck-scraper"
   role_arn      = module.iam.role_arn
-  image_uri     = "${data.aws_ecr_repository.scraper_repo.repository_url}:latest"
+  image_uri     = var.scraper_image_uri
   timeout       = 30
   environment_variables = {
     BRIGHTDATA_SECRET_NAME = "brightdata-api-key"
@@ -24,10 +16,10 @@ module "scraper_lambda" {
 }
 
 module "analyzer_lambda" {
-  source        = "../modules/container_lambda"
+  source        = "./modules/container_lambda"
   function_name = "fitcheck-analyzer"
   role_arn      = module.iam.role_arn
-  image_uri     = "${data.aws_ecr_repository.analyzer_repo.repository_url}:latest"
+  image_uri     = var.analyzer_image_uri
   timeout       = 300 # 5 minutes
   environment_variables = {
     GEMINI_SECRET_NAME = "gemini-key"
