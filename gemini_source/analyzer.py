@@ -5,13 +5,9 @@ import boto3
 import base64
 import io
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 import google.generativeai as genai
 from pypdf import PdfReader
-from gensim.models import Word2Vec
-from gensim.utils import simple_preprocess
-from numpy import dot
-from numpy.linalg import norm
 
 # Configure logging
 logger = logging.getLogger()
@@ -48,46 +44,67 @@ def extract_text_from_pdf(pdf_base64: str) -> str:
         logger.error(f"Error extracting PDF text: {str(e)}")
         raise ValueError("Invalid PDF content")
 
-def preprocess_text(text: str) -> List[str]:
+def calculate_similarity(cv_text: str, job_description: str, api_key: str) -> Tuple[float, float, float, float, float]:
     """
-    Tokenize and preprocess text using gensim's simple_preprocess.
-    This handles tokenization, lowercasing, and removing punctuation.
+    Calculate similarity using Gemini with a weighted scoring rubric.
+    Returns: (weighted_average_score, hard_skills, experience, soft_skills, education)
     """
-    return simple_preprocess(text)
+    genai.configure(api_key=api_key)
+    model_name = os.environ.get('MODEL_NAME', 'gemini-2.5-flash')
+    model = genai.GenerativeModel(model_name)
 
-def calculate_similarity(text1: str, text2: str) -> float:
-    """
-    Calculate similarity between two texts using Word2Vec.
-    Since we can't load a massive pre-trained model in Lambda easily,
-    we train a small model on the specific context of these two documents.
-    This captures local co-occurrence similarity.
-    """
-    tokens1 = preprocess_text(text1)
-    tokens2 = preprocess_text(text2)
+    prompt = f"""
+    Role: 20년 경력의 엄격한 IT 채용 담당자.
+    Task: JD와 CV를 비교하여 채점표(Rubric)에 따라 점수를 매기고 가중 평균을 구함.
     
-    if not tokens1 or not tokens2:
-        return 0.0
+    채점 기준 (Rubric):
+    1. Hard Skills (40%): JD에 명시된 필수 기술 스택 및 도구 사용 능력 (보유 시 점수 부여, 미보유 시 감점).
+    2. Experience & Depth (30%): 연차, 직무 적합성, 프로젝트 규모 및 깊이.
+    3. Soft Skills & Culture (20%): 커뮤니케이션, 리더십, 문제 해결 능력, 문화적 적합성.
+    4. Education & Bonus (10%): 학위, 자격증, 우대 사항(Nice-to-haves).
 
-    # Train Word2Vec on the combined corpus
-    sentences = [tokens1, tokens2]
-    model = Word2Vec(sentences, vector_size=100, window=5, min_count=1, workers=1)
+    Job Description:
+    {job_description}
+
+    User CV:
+    {cv_text}
+
+    출력 형식: 반드시 JSON 포맷만 출력. Markdown 코드 블록(```json) 사용 금지, 반드시 영어나 숫자로.
     
-    # Function to get document vector (average of word vectors)
-    def get_doc_vector(tokens, model):
-        vectors = [model.wv[word] for word in tokens if word in model.wv]
-        if not vectors:
-            return None
-        return sum(vectors) / len(vectors)
+    JSON Output Format:
+    {{
+        "breakdown": {{
+            "hard_skills": <score>,
+            "experience": <score>,
+            "soft_skills": <score>,
+            "education": <score>
+        }},
+        "weighted_average_score": <score>
+    }}
+    """
 
-    vec1 = get_doc_vector(tokens1, model)
-    vec2 = get_doc_vector(tokens2, model)
-
-    if vec1 is None or vec2 is None:
-        return 0.0
-
-    # Cosine similarity
-    cos_sim = dot(vec1, vec2) / (norm(vec1) * norm(vec2))
-    return float(cos_sim * 100) # Return 0-100
+    try:
+        response = model.generate_content(prompt)
+        response_text = response.text
+        
+        # Clean up markdown code blocks if present (just in case)
+        response_text = re.sub(r'```json\n?', '', response_text)
+        response_text = re.sub(r'```', '', response_text)
+        
+        data = json.loads(response_text)
+        
+        breakdown = data.get("breakdown", {})
+        hard_skills = float(breakdown.get("hard_skills", 0))
+        experience = float(breakdown.get("experience", 0))
+        soft_skills = float(breakdown.get("soft_skills", 0))
+        education = float(breakdown.get("education", 0))
+        weighted_average_score = float(data.get("weighted_average_score", 0))
+        
+        return weighted_average_score, hard_skills, experience, soft_skills, education
+        
+    except Exception as e:
+        logger.error(f"Error in calculate_similarity: {str(e)}")
+        return 0.0, 0.0, 0.0, 0.0, 0.0
 
 def invoke_scraper(job_url: str) -> Dict[str, Any]:
     """
@@ -146,7 +163,8 @@ def html_escape(text: str) -> str:
             .replace('"', "&quot;")
             .replace("'", "&#x27;"))
 
-def generate_html_report(similarity_score: float, strengths: List[str], weaknesses: List[str], consulting_advice: str) -> str:
+def generate_html_report(similarity_score: float, strengths: List[str], weaknesses: List[str], consulting_advice: str, 
+                         hard_skills: float, experience: float, soft_skills: float, education: float) -> str:
     """Generate HTML report based on analysis results."""
     
     # Parse consulting advice if it's structured
@@ -210,9 +228,16 @@ def generate_html_report(similarity_score: float, strengths: List[str], weakness
     html_report = html_report.replace('{weaknesses_html}', weaknesses_html)
     html_report = html_report.replace('{advice_html}', advice_html)
     
+    # Substitute breakdown scores
+    html_report = html_report.replace('{hard_skills}', str(hard_skills))
+    html_report = html_report.replace('{experience}', str(experience))
+    html_report = html_report.replace('{soft_skills}', str(soft_skills))
+    html_report = html_report.replace('{education}', str(education))
+    
     return html_report
 
-def analyze_with_gemini(api_key: str, cv_text: str, job_description: str, similarity_score: float) -> str:
+def analyze_with_gemini(api_key: str, cv_text: str, job_description: str, similarity_score: float,
+                        hard_skills: float, experience: float, soft_skills: float, education: float) -> str:
     """
     Use Gemini to analyze the CV against the Job Description and return HTML report.
     """
@@ -260,7 +285,11 @@ def analyze_with_gemini(api_key: str, cv_text: str, job_description: str, simila
             similarity_score=similarity_score,
             strengths=analysis_result.get('strengths', []),
             weaknesses=analysis_result.get('weaknesses', []),
-            consulting_advice=analysis_result.get('consulting_advice', '')
+            consulting_advice=analysis_result.get('consulting_advice', ''),
+            hard_skills=hard_skills,
+            experience=experience,
+            soft_skills=soft_skills,
+            education=education
         )
         
         return html_report
@@ -338,11 +367,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info(f"Retrieved job description ({len(job_description)} chars)")
 
         # 4. Calculate Similarity
-        similarity_score = calculate_similarity(cv_text, job_description)
+        similarity_score, hard_skills, experience, soft_skills, education = calculate_similarity(cv_text, job_description, gemini_key)
         logger.info(f"Calculated similarity: {similarity_score}")
+        logger.info(f"Breakdown: Hard Skills={hard_skills}, Experience={experience}, Soft Skills={soft_skills}, Education={education}")
 
         # 5. Analyze with Gemini and get HTML report
-        html_report = analyze_with_gemini(gemini_key, cv_text, job_description, similarity_score)
+        html_report = analyze_with_gemini(gemini_key, cv_text, job_description, similarity_score, hard_skills, experience, soft_skills, education)
 
         return {
             'statusCode': 200,
@@ -357,4 +387,3 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'headers': {'Content-Type': 'application/json'},
             'body': json.dumps({'error': str(e)})
         }
-
