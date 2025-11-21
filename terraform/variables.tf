@@ -20,3 +20,9 @@ variable "allowed_origins" {
   type        = list(string)
   default     = ["*"]
 }
+
+variable "gemini_model_name" {
+  description = "Gemini model name to use (e.g., gemini-2.5-flash)"
+  type        = string
+  default     = "gemini-2.5-flash"
+}

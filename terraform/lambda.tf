@@ -25,6 +25,7 @@ module "analyzer_lambda" {
   environment_variables = {
     GEMINI_SECRET_NAME = "gemini-key"
     APP_CLIENT_SECRET  = var.app_client_secret
+    MODEL_NAME         = var.gemini_model_name
   }
   enable_function_url = true
   allowed_origins     = var.allowed_origins

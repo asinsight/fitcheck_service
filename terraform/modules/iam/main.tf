@@ -21,15 +21,16 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 }
 
 resource "aws_iam_policy" "secrets_policy" {
-  name        = "fitcheck_secrets_policy"
-  description = "Allow Lambda to access Secrets Manager"
+  name        = "fitcheck_lambda_custom_policy"
+  description = "Allow Lambda to access Secrets Manager and invoke other functions"
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Action = [
-          "secretsmanager:GetSecretValue"
+          "secretsmanager:GetSecretValue",
+          "lambda:InvokeFunction"
         ]
         Effect   = "Allow"
         Resource = "*"

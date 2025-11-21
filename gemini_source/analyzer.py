@@ -203,13 +203,12 @@ def generate_html_report(similarity_score: float, strengths: List[str], weakness
         html_template = f.read()
     
     # Substitute variables
-    html_report = html_template.format(
-        similarity_score=similarity_score,
-        stroke_value=stroke_value,
-        strengths_html=strengths_html,
-        weaknesses_html=weaknesses_html,
-        advice_html=advice_html
-    )
+    # Substitute variables using replace to avoid issues with CSS curly braces
+    html_report = html_template.replace('{similarity_score:.1f}', f"{similarity_score:.1f}")
+    html_report = html_report.replace('{stroke_value}', str(stroke_value))
+    html_report = html_report.replace('{strengths_html}', strengths_html)
+    html_report = html_report.replace('{weaknesses_html}', weaknesses_html)
+    html_report = html_report.replace('{advice_html}', advice_html)
     
     return html_report
 
@@ -218,7 +217,8 @@ def analyze_with_gemini(api_key: str, cv_text: str, job_description: str, simila
     Use Gemini to analyze the CV against the Job Description and return HTML report.
     """
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model_name = os.environ.get('MODEL_NAME', 'gemini-2.5-flash')
+    model = genai.GenerativeModel(model_name)
 
     prompt = f"""
     You are an expert career consultant.
