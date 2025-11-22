@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Link as LinkIcon, X } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { SignedIn, SignedOut, RedirectToSignIn, UserButton, useAuth } from '@clerk/clerk-react';
 
 // --- Utility for Tailwind classes ---
 function cn(...inputs) {
@@ -101,25 +102,30 @@ const BreakdownChart = ({ breakdown }) => {
 };
 
 const Header = () => (
-  <header className="w-full py-8 text-center">
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="inline-flex items-center gap-2 mb-2"
-    >
-      <div className="w-8 h-8 bg-lime-400 rounded-lg rotate-3 flex items-center justify-center">
-        <CheckCircle className="text-slate-900 w-5 h-5" />
-      </div>
-      <h1 className="text-3xl font-bold tracking-tight text-white">FitCheck</h1>
-    </motion.div>
-    <motion.p
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.2 }}
-      className="text-slate-400 font-light"
-    >
-      Check your career fit instantly
-    </motion.p>
+  <header className="w-full py-8 relative">
+    <div className="absolute right-0 top-8">
+      <UserButton afterSignOutUrl="/" appearance={{ elements: { userButtonAvatarBox: 'ring-2 ring-lime-400/70' } }} />
+    </div>
+    <div className="text-center">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="inline-flex items-center gap-2 mb-2"
+      >
+        <div className="w-8 h-8 bg-lime-400 rounded-lg rotate-3 flex items-center justify-center">
+          <CheckCircle className="text-slate-900 w-5 h-5" />
+        </div>
+        <h1 className="text-3xl font-bold tracking-tight text-white">FitCheck</h1>
+      </motion.div>
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="text-slate-400 font-light"
+      >
+        Check your career fit instantly
+      </motion.p>
+    </div>
   </header>
 );
 
@@ -296,6 +302,7 @@ const AdviceAccordion = ({ items }) => {
 // --- Main App Component ---
 
 function App() {
+  const { getToken } = useAuth();
   const [url, setUrl] = useState('');
   const [file, setFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -327,6 +334,12 @@ function App() {
     setResult(null);
 
     try {
+      const token = await getToken();
+
+      if (!token) {
+        throw new Error("Unable to retrieve session token.");
+      }
+
       // Convert file to base64
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -340,6 +353,7 @@ function App() {
             headers: {
               'Content-Type': 'application/json',
               'x-fitcheck-auth': process.env.LAMBDA_KEY || '',
+              'Authorization': `Bearer ${token}`,
             },
             body: JSON.stringify({
               job_url: url,
@@ -376,9 +390,15 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-lime-400/30">
-      <div className="max-w-3xl mx-auto px-6 pb-20">
-        <Header />
+    <>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+
+      <SignedIn>
+        <div className="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-lime-400/30">
+          <div className="max-w-3xl mx-auto px-6 pb-20">
+            <Header />
 
         {/* Input Section */}
         <motion.div
@@ -548,6 +568,8 @@ function App() {
         </AnimatePresence>
       </div>
     </div>
+      </SignedIn>
+    </>
   );
 }
 
