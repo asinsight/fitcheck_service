@@ -54,33 +54,36 @@ def calculate_similarity(cv_text: str, job_description: str, api_key: str) -> Tu
     model = genai.GenerativeModel(model_name)
 
     prompt = f"""
-    Role: 20년 경력의 엄격한 IT 채용 담당자.
-    Task: JD와 CV를 비교하여 채점표(Rubric)에 따라 점수를 매기고 가중 평균을 구함.
-    
-    채점 기준 (Rubric):
-    1. Hard Skills (40%): JD에 명시된 필수 기술 스택 및 도구 사용 능력 (보유 시 점수 부여, 미보유 시 감점).
-    2. Experience & Depth (30%): 연차, 직무 적합성, 프로젝트 규모 및 깊이.
-    3. Soft Skills & Culture (20%): 커뮤니케이션, 리더십, 문제 해결 능력, 문화적 적합성.
-    4. Education & Bonus (10%): 학위, 자격증, 우대 사항(Nice-to-haves).
+        Role: Strict IT Technical Recruiter with over 20 years of experience.
+        Task: Compare the Job Description (JD) and the User CV, evaluate them based on the Rubric below, and calculate the weighted average score.
 
-    Job Description:
-    {job_description}
+        Scoring Rubric:
+        1. Hard Skills (40%): Proficiency in essential tech stacks and tools listed in the JD. (Award points for matches, deduct points for missing critical skills).
+        2. Experience & Depth (30%): Years of experience, role suitability, and the scale/depth of projects.
+        3. Soft Skills & Culture (20%): Communication, leadership, problem-solving abilities, and cultural fit.
+        4. Education & Bonus (10%): Degrees, certifications, and 'nice-to-have' qualifications.
 
-    User CV:
-    {cv_text}
+        Job Description:
+        {job_description}
 
-    출력 형식: 반드시 JSON 포맷만 출력. Markdown 코드 블록(```json) 사용 금지, 반드시 영어나 숫자로.
-    
-    JSON Output Format:
-    {{
-        "breakdown": {{
-            "hard_skills": <score>,
-            "experience": <score>,
-            "soft_skills": <score>,
-            "education": <score>
-        }},
-        "weighted_average_score": <score>
-    }}
+        User CV:
+        {cv_text}
+
+        Output Requirements:
+        - Output STRICTLY in raw JSON format. 
+        - Do NOT use Markdown code blocks (e.g., ```json).
+        - All content must be in English or numbers.
+
+        JSON Output Format:
+        {{
+            "breakdown": {{
+                "hard_skills": <score_0_to_100>,
+                "experience": <score_0_to_100>,
+                "soft_skills": <score_0_to_100>,
+                "education": <score_0_to_100>
+            }},
+            "weighted_average_score": <calculated_score>
+        }}
     """
 
     try:
