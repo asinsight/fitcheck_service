@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Link as LinkIcon, X } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { SignedIn, SignedOut, RedirectToSignIn, UserButton, useAuth } from '@clerk/clerk-react';
+import { UserButton, useAuth, useClerk } from '@clerk/clerk-react';
 
 // --- Utility for Tailwind classes ---
-function cn(...inputs) {
+function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
@@ -20,8 +20,30 @@ const LOADING_MESSAGES = [
   "Drafting Career Advice..."
 ];
 
+// --- Types ---
+interface Breakdown {
+  hard_skills: number;
+  experience: number;
+  soft_skills: number;
+  education: number;
+  [key: string]: number;
+}
+
+interface AdviceItem {
+  title: string;
+  content: string;
+}
+
+interface AnalysisResult {
+  score: number;
+  breakdown: Breakdown;
+  strengths: string[];
+  weaknesses: string[];
+  advice: AdviceItem[];
+}
+
 // --- Helper: Parse HTML Response ---
-const parseHtmlResponse = (html) => {
+const parseHtmlResponse = (html: string): AnalysisResult => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
 
@@ -30,12 +52,12 @@ const parseHtmlResponse = (html) => {
   const score = parseFloat(scoreText.replace(/[^0-9.]/g, ''));
 
   // Extract Breakdown Scores
-  const getScore = (category) => {
+  const getScore = (category: string) => {
     const el = doc.querySelector(`.score-value[data-category="${category}"]`);
-    return el ? parseFloat(el.textContent) : 0;
+    return el ? parseFloat(el.textContent || "0") : 0;
   };
 
-  const breakdown = {
+  const breakdown: Breakdown = {
     hard_skills: getScore('hard_skills'),
     experience: getScore('experience'),
     soft_skills: getScore('soft_skills'),
@@ -43,10 +65,10 @@ const parseHtmlResponse = (html) => {
   };
 
   // Extract Strengths
-  const strengths = Array.from(doc.querySelectorAll('.strengths .card-item')).map(el => el.textContent.trim());
+  const strengths = Array.from(doc.querySelectorAll('.strengths .card-item')).map(el => el.textContent?.trim() || "");
 
   // Extract Weaknesses
-  const weaknesses = Array.from(doc.querySelectorAll('.weaknesses .card-item')).map(el => el.textContent.trim());
+  const weaknesses = Array.from(doc.querySelectorAll('.weaknesses .card-item')).map(el => el.textContent?.trim() || "");
 
   // Extract Advice
   const advice = Array.from(doc.querySelectorAll('.advice-list li')).map(el => {
@@ -55,8 +77,8 @@ const parseHtmlResponse = (html) => {
     const title = strong?.textContent || "Advice";
 
     // Get text content excluding the title
-    let content = el.textContent.trim();
-    if (strong) {
+    let content = el.textContent?.trim() || "";
+    if (strong && strong.textContent) {
       content = content.replace(strong.textContent, '').trim();
     }
 
@@ -68,7 +90,11 @@ const parseHtmlResponse = (html) => {
 
 // --- Components ---
 
-const BreakdownChart = ({ breakdown }) => {
+interface BreakdownChartProps {
+  breakdown: Breakdown;
+}
+
+const BreakdownChart: React.FC<BreakdownChartProps> = ({ breakdown }) => {
   const items = [
     { label: "Hard Skills", key: "hard_skills", color: "bg-blue-500" },
     { label: "Experience", key: "experience", color: "bg-emerald-500" },
@@ -101,39 +127,53 @@ const BreakdownChart = ({ breakdown }) => {
   );
 };
 
-const Header = () => (
-  <header className="w-full py-8 relative">
-    <div className="absolute right-0 top-8">
-      <UserButton afterSignOutUrl="/" appearance={{ elements: { userButtonAvatarBox: 'ring-2 ring-lime-400/70' } }} />
-    </div>
-    <div className="text-center">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="inline-flex items-center gap-2 mb-2"
-      >
-        <div className="w-8 h-8 bg-lime-400 rounded-lg rotate-3 flex items-center justify-center">
-          <CheckCircle className="text-slate-900 w-5 h-5" />
-        </div>
-        <h1 className="text-3xl font-bold tracking-tight text-white">FitCheck</h1>
-      </motion.div>
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="text-slate-400 font-light"
-      >
-        Check your career fit instantly
-      </motion.p>
-    </div>
-  </header>
-);
+const Header: React.FC = () => {
+  const { signOut } = useClerk();
+  return (
+    <header className="w-full py-8 relative flex items-center justify-center">
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-4 bg-slate-800 p-2 rounded-lg border border-slate-700">
+        <button
+          onClick={() => signOut()}
+          className="text-sm text-red-400 hover:text-red-300 font-bold"
+        >
+          FORCE SIGN OUT
+        </button>
+        <UserButton afterSignOutUrl="/" appearance={{ elements: { userButtonAvatarBox: 'ring-2 ring-lime-400/70' } }} />
+      </div>
+      <div className="text-center">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="inline-flex items-center gap-2 mb-2"
+        >
+          <div className="w-8 h-8 bg-lime-400 rounded-lg rotate-3 flex items-center justify-center">
+            <CheckCircle className="text-slate-900 w-5 h-5" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">FitCheck</h1>
+        </motion.div>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-slate-400 font-light"
+        >
+          Check your career fit instantly
+        </motion.p>
+      </div>
+    </header>
+  );
+};
 
-const FileUpload = ({ file, setFile }) => {
-  const inputRef = useRef(null);
+interface FileUploadProps {
+  file: File | null;
+  setFile: (file: File | null) => void;
+}
+
+const FileUpload: React.FC<FileUploadProps> = ({ file, setFile }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleDrag = (e) => {
+  const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") {
@@ -143,7 +183,7 @@ const FileUpload = ({ file, setFile }) => {
     }
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -152,13 +192,13 @@ const FileUpload = ({ file, setFile }) => {
     }
   };
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       validateAndSetFile(e.target.files[0]);
     }
   };
 
-  const validateAndSetFile = (file) => {
+  const validateAndSetFile = (file: File) => {
     if (file.type === "application/pdf") {
       setFile(file);
     } else {
@@ -214,7 +254,11 @@ const FileUpload = ({ file, setFile }) => {
   );
 };
 
-const ScoreGauge = ({ score }) => {
+interface ScoreGaugeProps {
+  score: number;
+}
+
+const ScoreGauge: React.FC<ScoreGaugeProps> = ({ score }) => {
   const circumference = 2 * Math.PI * 45; // radius 45
   const strokeDashoffset = circumference - (score / 100) * circumference;
 
@@ -260,8 +304,12 @@ const ScoreGauge = ({ score }) => {
   );
 };
 
-const AdviceAccordion = ({ items }) => {
-  const [openIndex, setOpenIndex] = useState(0);
+interface AdviceAccordionProps {
+  items: AdviceItem[];
+}
+
+const AdviceAccordion: React.FC<AdviceAccordionProps> = ({ items }) => {
+  const [openIndex, setOpenIndex] = useState<number>(0);
 
   return (
     <div className="space-y-3">
@@ -302,17 +350,32 @@ const AdviceAccordion = ({ items }) => {
 // --- Main App Component ---
 
 function App() {
-  const { getToken } = useAuth();
-  const [url, setUrl] = useState('');
-  const [file, setFile] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
+  const { getToken, isLoaded, isSignedIn, userId } = useAuth();
+  const { redirectToSignIn } = useClerk();
+
+  // Debug: Log authentication state on every render
+  console.log('[DEBUG] Auth State:', { isLoaded, isSignedIn, userId, hasUserId: !!userId });
+
+  useEffect(() => {
+    console.log('[DEBUG] useEffect triggered:', { isLoaded, isSignedIn });
+    if (isLoaded && !isSignedIn) {
+      console.log('[DEBUG] Redirecting to sign in...');
+      redirectToSignIn();
+    } else if (isLoaded && isSignedIn) {
+      console.log('[DEBUG] User is signed in, userId:', userId);
+    }
+  }, [isLoaded, isSignedIn, redirectToSignIn, userId]);
+
+  const [url, setUrl] = useState<string>('');
+  const [file, setFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadingMsgIndex, setLoadingMsgIndex] = useState<number>(0);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Rotate loading messages
   useEffect(() => {
-    let interval;
+    let interval: NodeJS.Timeout;
     if (isLoading) {
       interval = setInterval(() => {
         setLoadingMsgIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
@@ -346,13 +409,14 @@ function App() {
 
       reader.onload = async () => {
         try {
+          if (typeof reader.result !== 'string') throw new Error("Failed to read file");
           const base64String = reader.result.split(',')[1]; // Remove data:application/pdf;base64, prefix
 
           const response = await fetch(LAMBDA_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-fitcheck-auth': process.env.LAMBDA_KEY || '',
+              'x-fitcheck-auth': import.meta.env.VITE_LAMBDA_KEY || '',
               'Authorization': `Bearer ${token}`,
             },
             body: JSON.stringify({
@@ -370,7 +434,7 @@ function App() {
           const data = parseHtmlResponse(html);
           setResult(data);
 
-        } catch (err) {
+        } catch (err: any) {
           console.error(err);
           setError(err.message || "An unexpected error occurred.");
         } finally {
@@ -383,22 +447,73 @@ function App() {
         setIsLoading(false);
       };
 
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
       setIsLoading(false);
     }
   };
 
-  return (
-    <>
-      <SignedOut>
-        <RedirectToSignIn />
-      </SignedOut>
+  if (!isLoaded) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f5f5f5' }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
-      <SignedIn>
-        <div className="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-lime-400/30">
-          <div className="max-w-3xl mx-auto px-6 pb-20">
-            <Header />
+  if (!isSignedIn) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        background: '#ffffff',
+        fontFamily: 'Arial, sans-serif',
+        padding: '20px'
+      }}>
+        <div style={{
+          maxWidth: '400px',
+          width: '100%',
+          padding: '40px',
+          border: '1px solid #ddd',
+          borderRadius: '8px',
+          background: '#fff',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          <h1 style={{ marginBottom: '10px', fontSize: '24px', fontWeight: 'bold', textAlign: 'center' }}>FitCheck</h1>
+          <p style={{ marginBottom: '30px', color: '#666', textAlign: 'center' }}>Please sign in to continue</p>
+          <button
+            onClick={() => redirectToSignIn()}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: '#000',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '16px',
+              cursor: 'pointer',
+              fontWeight: '500'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = '#333'}
+            onMouseOut={(e) => e.currentTarget.style.background = '#000'}
+          >
+            Sign In with Clerk
+          </button>
+          <div style={{ marginTop: '20px', fontSize: '12px', color: '#999', textAlign: 'center' }}>
+            Debug: isLoaded = {String(isLoaded)}, isSignedIn = {String(isSignedIn)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-lime-400/30">
+      <div className="max-w-3xl mx-auto px-6 pb-20">
+        <Header />
 
         {/* Input Section */}
         <motion.div
@@ -568,8 +683,6 @@ function App() {
         </AnimatePresence>
       </div>
     </div>
-      </SignedIn>
-    </>
   );
 }
 

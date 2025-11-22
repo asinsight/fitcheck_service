@@ -8,6 +8,9 @@ import re
 from typing import Dict, Any, List, Tuple
 import google.generativeai as genai
 from pypdf import PdfReader
+import jwt
+from jwt import PyJWKClient
+import requests
 
 # Configure logging
 logger = logging.getLogger()
@@ -31,6 +34,53 @@ def get_secret(secret_name: str) -> str:
         return json.loads(secret)['api_key']
     else:
         raise Exception("Secret binary not supported")
+
+def verify_clerk_jwt(token: str, issuer_url: str) -> Dict[str, Any]:
+    """
+    Verify Clerk JWT token using JWKS.
+    
+    Args:
+        token: JWT token string (without 'Bearer ' prefix)
+        issuer_url: Clerk issuer URL (e.g., https://your-domain.clerk.accounts.dev)
+    
+    Returns:
+        Decoded JWT payload
+    
+    Raises:
+        Exception: If token verification fails
+    """
+    try:
+        # Construct JWKS URL
+        jwks_url = f"{issuer_url}/.well-known/jwks.json"
+        
+        # Fetch JWKS
+        logger.info(f"Fetching JWKS from {jwks_url}")
+        jwks_client = PyJWKClient(jwks_url)
+        
+        # Get signing key from JWT headers
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        
+        # Verify and decode token
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            issuer=issuer_url,
+            options={"verify_exp": True, "verify_iss": True}
+        )
+        
+        logger.info(f"JWT verified successfully for subject: {payload.get('sub')}")
+        return payload
+        
+    except jwt.ExpiredSignatureError:
+        logger.error("JWT token has expired")
+        raise Exception("Token has expired")
+    except jwt.InvalidTokenError as e:
+        logger.error(f"Invalid JWT token: {str(e)}")
+        raise Exception(f"Invalid token: {str(e)}")
+    except Exception as e:
+        logger.error(f"JWT verification failed: {str(e)}")
+        raise Exception(f"Token verification failed: {str(e)}")
 
 def extract_text_from_pdf(pdf_base64: str) -> str:
     try:
@@ -309,7 +359,50 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info("Received analysis request")
     
     try:
-        # Security check: Validate x-fitcheck-auth header
+        # Security Layer 1: Clerk JWT Token Verification
+        clerk_issuer_url = os.environ.get('CLERK_ISSUER_URL')
+        if clerk_issuer_url:
+            logger.info("Clerk JWT verification enabled")
+            # Get headers (case-insensitive)
+            headers = event.get('headers', {})
+            normalized_headers = {k.lower(): v for k, v in headers.items()}
+            
+            # Extract Authorization header
+            auth_header = normalized_headers.get('authorization', '')
+            
+            if not auth_header:
+                logger.warning("Missing Authorization header")
+                return {
+                    'statusCode': 401,
+                    'headers': {'Content-Type': 'application/json'},
+                    'body': json.dumps({'error': 'Missing Authorization header'})
+                }
+            
+            # Extract Bearer token
+            if not auth_header.startswith('Bearer '):
+                logger.warning("Invalid Authorization header format")
+                return {
+                    'statusCode': 401,
+                    'headers': {'Content-Type': 'application/json'},
+                    'body': json.dumps({'error': 'Authorization header must be in format: Bearer <token>'})
+                }
+            
+            token = auth_header[7:]  # Remove 'Bearer ' prefix
+            
+            # Verify JWT token
+            try:
+                jwt_payload = verify_clerk_jwt(token, clerk_issuer_url)
+                logger.info(f"Request authenticated for user: {jwt_payload.get('sub')}")
+            except Exception as e:
+                logger.warning(f"JWT verification failed: {str(e)}")
+                return {
+                    'statusCode': 401,
+                    'headers': {'Content-Type': 'application/json'},
+                    'body': json.dumps({'error': f'Unauthorized: {str(e)}'})
+                }
+        
+        # Security Layer 2 (Legacy): Validate x-fitcheck-auth header
+        # This is kept for backward compatibility but can be removed once JWT is fully deployed
         app_secret = os.environ.get('APP_CLIENT_SECRET')
         if app_secret:
             # Get headers (case-insensitive)

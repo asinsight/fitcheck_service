@@ -1,0 +1,23 @@
+# Example Terraform variables configuration
+# Copy this file to terraform.tfvars and fill in your actual values
+# WARNING: Never commit terraform.tfvars to version control!
+
+# ECR image URIs (get these from terraform_ecr outputs)
+scraper_image_uri = "123456789012.dkr.ecr.us-east-1.amazonaws.com/fitcheck-scraper-repo:latest"
+analyzer_image_uri = "123456789012.dkr.ecr.us-east-1.amazonaws.com/fitcheck-analyzer-repo:latest"
+
+# Security: Generate a strong random secret for legacy auth
+# Linux/macOS: openssl rand -hex 32
+# Windows PowerShell: -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 32 | % {[char]$_})
+app_client_secret = "change-this-to-a-random-secret"
+
+# CORS configuration for Analyzer Function URL
+# For production, specify exact origins: ["https://yourdomain.com"]
+allowed_origins = ["*"]
+
+# Google Gemini model name
+gemini_model_name = "gemini-2.5-flash"
+
+# Clerk JWT Authentication
+# Get this from your Clerk dashboard (e.g., https://your-domain.clerk.accounts.dev)
+clerk_issuer_url = "https://your-clerk-domain.clerk.accounts.dev"
