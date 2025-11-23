@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Link as LinkIcon, X } from 'lucide-react';
 import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, RedirectToSignIn } from "@clerk/clerk-react";
+import LandingPage from './components/LandingPage';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -388,7 +389,7 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-lime-400/30">
       <SignedOut>
-        <RedirectToSignIn />
+        <LandingPage />
       </SignedOut>
       <SignedIn>
         <div className="max-w-3xl mx-auto px-6 pb-20">
