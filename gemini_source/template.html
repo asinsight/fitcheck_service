@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Analysis</title>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+        :root {
+            --primary-blue: #3B82F6;
+            --deep-blue: #1E40AF;
+            --accent-cyan: #06B6D4;
+            --bg-soft: #F0F9FF;
+            --card-bg: #FFFFFF;
+            --text-main: #1E293B;
+            --text-sub: #475569;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: var(--bg-soft);
+            color: var(--text-main);
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: 0 20px 40px -10px rgba(59, 130, 246, 0.15);
+            overflow: hidden;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--deep-blue), var(--primary-blue));
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            font-weight: 300;
+            opacity: 0.9;
+        }
+
+        .score-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            background: white;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin-bottom: 20px;
+        }
+
+        .circular-chart {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: #E2E8F0;
+            stroke-width: 2.5;
+        }
+
+        .circle {
+            fill: none;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke: url(#gradient);
+            animation: progress 1.5s ease-out forwards;
+        }
+
+        .percentage-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .percentage-text strong {
+            display: block;
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--deep-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .percentage-text span {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            font-weight: 500;
+        }
+
+        .content-wrapper {
+            padding: 0 40px 40px;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 40px 0 20px;
+            display: flex;
+            align-items: center;
+            color: var(--text-main);
+        }
+
+        .section-title::before {
+            content: '';
+            display: block;
+            width: 6px;
+            height: 24px;
+            background: var(--primary-blue);
+            border-radius: 3px;
+            margin-right: 12px;
+        }
+
+        .card-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card-item {
+            background: #F8FAFC;
+            padding: 16px 20px;
+            border-radius: 12px;
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            color: var(--text-sub);
+        }
+
+        .card-item:hover {
+            transform: translateX(5px);
+            background: #F1F5F9;
+        }
+
+        .strengths .card-item {
+            border-left-color: #10B981;
+        }
+
+        .strengths .card-item::before {
+            content: '✓ ';
+            color: #10B981;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .weaknesses .card-item {
+            border-left-color: #F59E0B;
+        }
+
+        .weaknesses .card-item::before {
+            content: '! ';
+            color: #F59E0B;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .advice-box {
+            background: linear-gradient(145deg, #EFF6FF, #FFFFFF);
+            border: 1px solid #BFDBFE;
+            border-radius: 16px;
+            padding: 25px;
+        }
+
+        .advice-list {
+            counter-reset: advice-counter;
+            list-style: none;
+        }
+
+        .advice-list li {
+            position: relative;
+            padding-left: 40px;
+            margin-bottom: 16px;
+            color: var(--text-sub);
+        }
+
+        .advice-list li strong {
+            color: var(--text-main);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .advice-list li::before {
+            counter-increment: advice-counter;
+            content: counter(advice-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 28px;
+            height: 28px;
+            background: var(--primary-blue);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
+        }
+
+        @keyframes progress {
+            0% {
+                stroke-dasharray: 0 100;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .header {
+                padding: 30px 20px;
+            }
+
+            .content-wrapper {
+                padding: 0 20px 40px;
+            }
+
+            .header h1 {
+                font-size: 1.6rem;
+            }
+
+            .chart-container {
+                width: 160px;
+                height: 160px;
+            }
+
+            .percentage-text strong {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Candidate Analysis</h1>
+            <p>AI-Powered Resume Review</p>
+        </div>
+        <div class="score-section">
+            <div class="chart-container">
+                <svg viewBox="0 0 36 36" class="circular-chart">
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#3B82F6" />
+                            <stop offset="100%" stop-color="#06B6D4" />
+                        </linearGradient>
+                    </defs>
+                    <path class="circle-bg"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="circle" stroke-dasharray="{stroke_value}, 100"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <div class="percentage-text">
+                    <strong>{similarity_score:.1f}%</strong>
+                    <span>Match Score</span>
+                </div>
+            </div>
+
+            <!-- Breakdown Scores (Hidden for parsing, Visible for direct view) -->
+            <div class="breakdown-scores" style="width: 100%; max-width: 400px; margin-top: 20px;">
+                <div class="score-item" style="margin-bottom: 10px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #475569; margin-bottom: 4px;">
+                        <span>Hard Skills</span>
+                        <span class="score-value" data-category="hard_skills">{hard_skills}</span>
+                    </div>
+                    <div style="width: 100%; height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden;">
+                        <div style="width: {hard_skills}%; height: 100%; background: #3B82F6; border-radius: 4px;">
+                        </div>
+                    </div>
+                </div>
+                <div class="score-item" style="margin-bottom: 10px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #475569; margin-bottom: 4px;">
+                        <span>Experience</span>
+                        <span class="score-value" data-category="experience">{experience}</span>
+                    </div>
+                    <div style="width: 100%; height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden;">
+                        <div style="width: {experience}%; height: 100%; background: #10B981; border-radius: 4px;"></div>
+                    </div>
+                </div>
+                <div class="score-item" style="margin-bottom: 10px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #475569; margin-bottom: 4px;">
+                        <span>Soft Skills</span>
+                        <span class="score-value" data-category="soft_skills">{soft_skills}</span>
+                    </div>
+                    <div style="width: 100%; height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden;">
+                        <div style="width: {soft_skills}%; height: 100%; background: #F59E0B; border-radius: 4px;">
+                        </div>
+                    </div>
+                </div>
+                <div class="score-item" style="margin-bottom: 10px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #475569; margin-bottom: 4px;">
+                        <span>Education</span>
+                        <span class="score-value" data-category="education">{education}</span>
+                    </div>
+                    <div style="width: 100%; height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden;">
+                        <div style="width: {education}%; height: 100%; background: #8B5CF6; border-radius: 4px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="content-wrapper">
+            <div class="strengths">
+                <h2 class="section-title">Strengths</h2>
+                <ul class="card-list">
+                    {strengths_html}
+                </ul>
+            </div>
+            <div class="weaknesses">
+                <h2 class="section-title">Gap Analysis</h2>
+                <ul class="card-list">
+                    {weaknesses_html}
+                </ul>
+            </div>
+            <div class="advice">
+                <h2 class="section-title">Actionable Insights</h2>
+                <div class="advice-box">
+                    <ol class="advice-list">
+                        {advice_html}
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

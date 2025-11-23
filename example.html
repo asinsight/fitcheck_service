@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Analysis Report</title>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+        :root {
+            --primary-blue: #3B82F6;
+            --deep-blue: #1E40AF;
+            --accent-cyan: #06B6D4;
+            --bg-soft: #F0F9FF;
+            --card-bg: #FFFFFF;
+            --text-main: #1E293B;
+            --text-sub: #475569;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: var(--bg-soft);
+            color: var(--text-main);
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: 0 20px 40px -10px rgba(59, 130, 246, 0.15);
+            overflow: hidden;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        /* Header Section */
+        .header {
+            background: linear-gradient(135deg, var(--deep-blue), var(--primary-blue));
+            color: white;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            font-weight: 300;
+            opacity: 0.9;
+        }
+
+        /* Score Section with Animated Pie Chart */
+        .score-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            background: white;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin-bottom: 20px;
+        }
+
+        .circular-chart {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: #E2E8F0;
+            stroke-width: 2.5;
+        }
+
+        .circle {
+            fill: none;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke: url(#gradient);
+            animation: progress 1.5s ease-out forwards;
+        }
+
+        .percentage-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .percentage-text strong {
+            display: block;
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--deep-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .percentage-text span {
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            font-weight: 500;
+        }
+
+        /* Content Sections */
+        .content-wrapper {
+            padding: 0 40px 40px;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 40px 0 20px;
+            display: flex;
+            align-items: center;
+            color: var(--text-main);
+        }
+
+        .section-title::before {
+            content: '';
+            display: block;
+            width: 6px;
+            height: 24px;
+            background: var(--primary-blue);
+            border-radius: 3px;
+            margin-right: 12px;
+        }
+
+        .card-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card-item {
+            background: #F8FAFC;
+            padding: 16px 20px;
+            border-radius: 12px;
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            color: var(--text-sub);
+        }
+
+        .card-item:hover {
+            transform: translateX(5px);
+            background: #F1F5F9;
+        }
+
+        /* Strengths Styling */
+        .strengths .card-item {
+            border-left-color: #10B981;
+            /* Green accent */
+        }
+
+        .strengths .card-item::before {
+            content: '✓ ';
+            color: #10B981;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        /* Weaknesses Styling */
+        .weaknesses .card-item {
+            border-left-color: #F59E0B;
+            /* Orange accent */
+        }
+
+        .weaknesses .card-item::before {
+            content: '! ';
+            color: #F59E0B;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        /* Advice Section */
+        .advice-box {
+            background: linear-gradient(145deg, #EFF6FF, #FFFFFF);
+            border: 1px solid #BFDBFE;
+            border-radius: 16px;
+            padding: 25px;
+        }
+
+        .advice-intro {
+            margin-bottom: 20px;
+            font-weight: 500;
+            color: var(--deep-blue);
+        }
+
+        .advice-list {
+            counter-reset: advice-counter;
+            list-style: none;
+        }
+
+        .advice-list li {
+            position: relative;
+            padding-left: 40px;
+            margin-bottom: 16px;
+            color: var(--text-sub);
+        }
+
+        .advice-list li strong {
+            color: var(--text-main);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .advice-list li::before {
+            counter-increment: advice-counter;
+            content: counter(advice-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 28px;
+            height: 28px;
+            background: var(--primary-blue);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Animations */
+        @keyframes progress {
+            0% {
+                stroke-dasharray: 0 100;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .header {
+                padding: 30px 20px;
+            }
+
+            .content-wrapper {
+                padding: 0 20px 40px;
+            }
+
+            .header h1 {
+                font-size: 1.6rem;
+            }
+
+            .chart-container {
+                width: 160px;
+                height: 160px;
+            }
+
+            .percentage-text strong {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>Candidate Analysis</h1>
+            <p>AI-Powered Resume Review</p>
+        </div>
+
+        <div class="score-section">
+            <div class="chart-container">
+                <svg viewBox="0 0 36 36" class="circular-chart">
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#3B82F6" />
+                            <stop offset="100%" stop-color="#06B6D4" />
+                        </linearGradient>
+                    </defs>
+                    <path class="circle-bg" d="M18 2.0845
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="circle" stroke-dasharray="95.6, 100" d="M18 2.0845
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <div class="percentage-text">
+                    <strong>95.6%</strong>
+                    <span>Match Score</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-wrapper">
+            <div class="strengths">
+                <h2 class="section-title">Strengths</h2>
+                <ul class="card-list">
+                    <li class="card-item">Extensive and highly relevant experience (over 10+ years) in the healthcare
+                        and biopharmaceutical industries, far exceeding the 1.5 years required for clinical/research
+                        data.</li>
+                    <li class="card-item">Proven track record in designing, developing, and managing complex
+                        bioinformatics data pipelines across diverse R&D data sources (omics, NGS, clinical trial data),
+                        a core requirement.</li>
+                    <li class="card-item">Strong proficiency with AWS, including developing and managing pipelines and
+                        ETL processes, and mentioning 'Delta tables for data lake architecture' which aligns with data
+                        warehousing needs.</li>
+                    <li class="card-item">Expertise in core data engineering tools like Python and SQL (implied strongly
+                        through database/pipeline work), fundamental for the role.</li>
+                    <li class="card-item">Direct experience with modern software development best practices, including
+                        CI/CD and cloud-native automation, which matches the JD's requirement for DevOps and Code
+                        Versioning.</li>
+                    <li class="card-item">Master's degree in Biomedical Sciences, coupled with a Bachelor's in Computer
+                        Science, perfectly aligns with the preferred education background.</li>
+                    <li class="card-item">Demonstrated problem-solving and analytical abilities through extensive
+                        research, publications, and complex data analysis roles.</li>
+                    <li class="card-item">Experience in data management (data mesh) and building data lake solutions,
+                        indicating a strong understanding of data architecture and governance.</li>
+                </ul>
+            </div>
+
+            <div class="weaknesses">
+                <h2 class="section-title">Gap Analysis</h2>
+                <ul class="card-list">
+                    <li class="card-item">While general AWS proficiency is evident, specific AWS services like 'Glue'
+                        and 'Lambda' are not explicitly mentioned in the CV, which are key requirements in the job
+                        description.</li>
+                    <li class="card-item">The CV does not explicitly list 'R' as a programming language or skill for
+                        data processing, which is a 'strong knowledge' requirement in the job description.</li>
+                    <li class="card-item">Specific healthcare data standards (CDISC, HL7, FHIR, SNOMED CT, OMOP, DICOM)
+                        are listed as 'exposure' requirements in the JD but are not explicitly mentioned in the CV,
+                        despite extensive healthcare experience.</li>
+                    <li class="card-item">The terms 'data versioning' and 'lineage tracking' for regulatory compliance
+                        are not explicitly used in the CV, although 'Delta tables' and GxP compliance hint at related
+                        capabilities.</li>
+                    <li class="card-item">Familiarity with 'Containerization such as Docker and EKS/Kubernetes' and
+                        'Knowledge of machine learning operations (MLOps) and model deployment' are stated requirements,
+                        but these specific keywords are not present in the CV.</li>
+                    <li class="card-item">While collaboration is implied, 'Excellent communication skills for
+                        collaborating with stakeholders' and 'Agile development environment' could be more explicitly
+                        highlighted in the CV to match JD keywords.</li>
+                </ul>
+            </div>
+
+            <div class="advice">
+                <h2 class="section-title">Actionable Insights</h2>
+                <div class="advice-box">
+                    <p class="advice-intro">
+                        Junhee has an exceptionally strong background for this role, given the deep and consistent
+                        experience in biopharma, bioinformatics, and data engineering. The high similarity score
+                        reflects this. To further strengthen the application and ensure maximum keyword alignment for
+                        automated screening and human review, consider the following improvements:
+                    </p>
+                    <ol class="advice-list">
+                        <li>
+                            <strong>Tailor the Summary</strong>
+                            Begin with a powerful statement like: "Highly accomplished Principal Data Engineer with
+                            extensive experience (10+ years) in biopharmaceutical R&D, specializing in building
+                            GxP-compliant data pipelines on AWS for clinical, omics, and real-world data..." Explicitly
+                            mention 'Principal Data Engineer'.
+                        </li>
+                        <li>
+                            <strong>Enhance Skills Section</strong>
+                            Create a dedicated 'Technical Skills' section. Under AWS, explicitly list <code>S3</code>,
+                            <code>Redshift</code>, <code>FSx</code>, <code>Glue</code>, <code>Lambda</code>. Add
+                            <code>SQL</code> as a strong proficiency. Mention exposure to <code>R</code> if applicable.
+                        </li>
+                        <li>
+                            <strong>Integrate Missing Keywords</strong>
+                            Weave in keywords like <strong>Data Governance</strong> (lineage tracking, KPIs),
+                            <strong>DevOps/MLOps</strong> (CI/CD, Docker/Kubernetes), <strong>Healthcare
+                                Standards</strong> (CDISC, HL7, OMOP), and <strong>Collaboration/Agile</strong> into
+                            relevant experience entries.
+                        </li>
+                        <li>
+                            <strong>Quantify Achievements</strong>
+                            Add metrics to bullet points to show impact (e.g., "reduced processing time by X%", "managed
+                            Y trials").
+                        </li>
+                        <li>
+                            <strong>Rephrase 'Top Skills'</strong>
+                            Expand 'Top Skills' to include full technical breadth, framing LLM within MLOps context.
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
