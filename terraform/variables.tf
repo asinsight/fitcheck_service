@@ -26,3 +26,8 @@ variable "gemini_model_name" {
   type        = string
   default     = "gemini-2.5-flash"
 }
+
+variable "clerk_issuer_url" {
+  description = "Clerk Issuer URL for JWT verification (e.g. https://clerk.your-app.com)"
+  type        = string
+}

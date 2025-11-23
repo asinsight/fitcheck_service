@@ -8,10 +8,41 @@ import re
 from typing import Dict, Any, List, Tuple
 import google.generativeai as genai
 from pypdf import PdfReader
+import jwt
+from jwt.algorithms import RSAAlgorithm
+import requests
 
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+def verify_clerk_token(token: str) -> Dict[str, Any]:
+    """
+    Verify Clerk JWT token using JWKS.
+    """
+    try:
+        issuer_url = os.environ.get('CLERK_ISSUER_URL')
+        if not issuer_url:
+            logger.warning("CLERK_ISSUER_URL not set, skipping token verification (DEV MODE)")
+            return {}
+
+        # Fetch JWKS
+        jwks_url = f"{issuer_url}/.well-known/jwks.json"
+        jwks_client = jwt.PyJWKClient(jwks_url)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        
+        # Verify token
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            options={"verify_aud": False}, # Clerk tokens might not have aud set for backend API calls sometimes, or check specific aud if needed
+            issuer=issuer_url
+        )
+        return payload
+    except Exception as e:
+        logger.error(f"Token verification failed: {str(e)}")
+        raise Exception("Invalid token")
 
 def get_secret(secret_name: str) -> str:
     """
@@ -312,22 +343,28 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info("Received analysis request")
     
     try:
-        # Security check: Validate x-fitcheck-auth header
-        app_secret = os.environ.get('APP_CLIENT_SECRET')
-        if app_secret:
-            # Get headers (case-insensitive)
-            headers = event.get('headers', {})
-            # Normalize headers to lowercase keys for case-insensitive lookup
-            normalized_headers = {k.lower(): v for k, v in headers.items()}
-            auth_header = normalized_headers.get('x-fitcheck-auth', '')
-            
-            if auth_header != app_secret:
-                logger.warning("Unauthorized access attempt")
-                return {
-                    'statusCode': 401,
-                    'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps({'error': 'Unauthorized'})
-                }
+        # Security check: Validate Authorization header (Bearer Token)
+        headers = event.get('headers', {})
+        normalized_headers = {k.lower(): v for k, v in headers.items()}
+        auth_header = normalized_headers.get('authorization', '')
+        
+        if not auth_header.startswith('Bearer '):
+            logger.warning("Missing or invalid Authorization header")
+            return {
+                'statusCode': 401,
+                'headers': {'Content-Type': 'application/json'},
+                'body': json.dumps({'error': 'Unauthorized: Missing token'})
+            }
+        
+        token = auth_header.split(' ')[1]
+        try:
+            verify_clerk_token(token)
+        except Exception as e:
+             return {
+                'statusCode': 401,
+                'headers': {'Content-Type': 'application/json'},
+                'body': json.dumps({'error': 'Unauthorized: Invalid token'})
+            }
         
         # Parse Input
         body = event.get('body')

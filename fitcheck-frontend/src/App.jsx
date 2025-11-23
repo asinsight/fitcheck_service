@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Link as LinkIcon, X } from 'lucide-react';
+import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, RedirectToSignIn } from "@clerk/clerk-react";
+import LandingPage from './components/LandingPage';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -101,25 +103,30 @@ const BreakdownChart = ({ breakdown }) => {
 };
 
 const Header = () => (
-  <header className="w-full py-8 text-center">
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="inline-flex items-center gap-2 mb-2"
-    >
-      <div className="w-8 h-8 bg-lime-400 rounded-lg rotate-3 flex items-center justify-center">
-        <CheckCircle className="text-slate-900 w-5 h-5" />
-      </div>
-      <h1 className="text-3xl font-bold tracking-tight text-white">FitCheck</h1>
-    </motion.div>
-    <motion.p
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.2 }}
-      className="text-slate-400 font-light"
-    >
-      Check your career fit instantly
-    </motion.p>
+  <header className="w-full py-8 flex items-center justify-between">
+    <div className="text-center flex-1">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="inline-flex items-center gap-2 mb-2"
+      >
+        <div className="w-8 h-8 bg-lime-400 rounded-lg rotate-3 flex items-center justify-center">
+          <CheckCircle className="text-slate-900 w-5 h-5" />
+        </div>
+        <h1 className="text-3xl font-bold tracking-tight text-white">FitCheck</h1>
+      </motion.div>
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="text-slate-400 font-light"
+      >
+        Check your career fit instantly
+      </motion.p>
+    </div>
+    <div className="absolute right-6 top-8">
+      <UserButton />
+    </div>
   </header>
 );
 
@@ -302,6 +309,7 @@ function App() {
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const { getToken } = useAuth();
 
   // Rotate loading messages
   useEffect(() => {
@@ -335,10 +343,13 @@ function App() {
         try {
           const base64String = reader.result.split(',')[1]; // Remove data:application/pdf;base64, prefix
 
+          const token = await getToken();
+
           const response = await fetch(LAMBDA_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
               'x-fitcheck-auth': process.env.LAMBDA_KEY || '',
             },
             body: JSON.stringify({
@@ -377,176 +388,181 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-lime-400/30">
-      <div className="max-w-3xl mx-auto px-6 pb-20">
-        <Header />
+      <SignedOut>
+        <LandingPage />
+      </SignedOut>
+      <SignedIn>
+        <div className="max-w-3xl mx-auto px-6 pb-20">
+          <Header />
 
-        {/* Input Section */}
-        <motion.div
-          className="space-y-6 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10 py-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          <div className="space-y-4">
-            {/* URL Input */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <LinkIcon className="h-5 w-5 text-slate-500" />
+          {/* Input Section */}
+          <motion.div
+            className="space-y-6 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10 py-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div className="space-y-4">
+              {/* URL Input */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <LinkIcon className="h-5 w-5 text-slate-500" />
+                </div>
+                <input
+                  type="url"
+                  placeholder="Paste LinkedIn Job URL here..."
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-3 border border-slate-700 rounded-xl leading-5 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition-all"
+                />
               </div>
-              <input
-                type="url"
-                placeholder="Paste LinkedIn Job URL here..."
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                className="block w-full pl-10 pr-3 py-3 border border-slate-700 rounded-xl leading-5 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-lime-400/50 focus:border-lime-400 transition-all"
-              />
-            </div>
 
-            {/* File Upload */}
-            <FileUpload file={file} setFile={setFile} />
+              {/* File Upload */}
+              <FileUpload file={file} setFile={setFile} />
 
-            {/* Error Message */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg flex items-center gap-2 text-sm"
+              {/* Error Message */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg flex items-center gap-2 text-sm"
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  {error}
+                </motion.div>
+              )}
+
+              {/* Analyze Button */}
+              <button
+                onClick={handleAnalyze}
+                disabled={isLoading || !url || !file}
+                className={cn(
+                  "w-full py-4 rounded-xl font-bold text-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-lime-900/20",
+                  isLoading
+                    ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                    : "bg-lime-400 text-slate-900 hover:bg-lime-300 hover:scale-[1.02] active:scale-[0.98]"
+                )}
               >
-                <AlertCircle className="w-4 h-4" />
-                {error}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  "Analyze Fit"
+                )}
+              </button>
+            </div>
+          </motion.div>
+
+          {/* Loading Overlay / Message */}
+          <AnimatePresence>
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex flex-col items-center justify-center"
+              >
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-slate-700 border-t-lime-400 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-8 h-8 bg-lime-400/20 rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+                <motion.p
+                  key={loadingMsgIndex}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mt-6 text-lg font-medium text-lime-400"
+                >
+                  {LOADING_MESSAGES[loadingMsgIndex]}
+                </motion.p>
+                <p className="text-slate-500 text-sm mt-2">This may take 20-40 seconds</p>
               </motion.div>
             )}
+          </AnimatePresence>
 
-            {/* Analyze Button */}
-            <button
-              onClick={handleAnalyze}
-              disabled={isLoading || !url || !file}
-              className={cn(
-                "w-full py-4 rounded-xl font-bold text-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-lime-900/20",
-                isLoading
-                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
-                  : "bg-lime-400 text-slate-900 hover:bg-lime-300 hover:scale-[1.02] active:scale-[0.98]"
-              )}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                "Analyze Fit"
-              )}
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Loading Overlay / Message */}
-        <AnimatePresence>
-          {isLoading && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex flex-col items-center justify-center"
-            >
-              <div className="relative">
-                <div className="w-16 h-16 border-4 border-slate-700 border-t-lime-400 rounded-full animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-8 h-8 bg-lime-400/20 rounded-full animate-pulse"></div>
+          {/* Results Section */}
+          <AnimatePresence>
+            {result && !isLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-12 space-y-12"
+              >
+                {/* Score Section */}
+                <div className="text-center">
+                  <ScoreGauge score={result.score} />
                 </div>
-              </div>
-              <motion.p
-                key={loadingMsgIndex}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="mt-6 text-lg font-medium text-lime-400"
-              >
-                {LOADING_MESSAGES[loadingMsgIndex]}
-              </motion.p>
-              <p className="text-slate-500 text-sm mt-2">This may take 20-40 seconds</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
-        {/* Results Section */}
-        <AnimatePresence>
-          {result && !isLoading && (
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-12 space-y-12"
-            >
-              {/* Score Section */}
-              <div className="text-center">
-                <ScoreGauge score={result.score} />
-              </div>
-
-              {/* Breakdown Chart */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-              >
-                <BreakdownChart breakdown={result.breakdown} />
-              </motion.div>
-
-              {/* Virtual Persona / Analysis */}
-              <div className="grid md:grid-cols-2 gap-6">
+                {/* Breakdown Chart */}
                 <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="bg-slate-800/40 rounded-2xl p-6 border border-slate-700/50"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
                 >
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <span className="w-2 h-6 bg-lime-400 rounded-full"></span>
-                    Why You Fit
-                  </h3>
-                  <ul className="space-y-3">
-                    {result.strengths.map((item, i) => (
-                      <li key={i} className="flex items-start gap-3 text-slate-300 text-sm">
-                        <CheckCircle className="w-4 h-4 text-lime-400 shrink-0 mt-0.5" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
+                  <BreakdownChart breakdown={result.breakdown} />
                 </motion.div>
 
+                {/* Virtual Persona / Analysis */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-slate-800/40 rounded-2xl p-6 border border-slate-700/50"
+                  >
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                      <span className="w-2 h-6 bg-lime-400 rounded-full"></span>
+                      Why You Fit
+                    </h3>
+                    <ul className="space-y-3">
+                      {result.strengths.map((item, i) => (
+                        <li key={i} className="flex items-start gap-3 text-slate-300 text-sm">
+                          <CheckCircle className="w-4 h-4 text-lime-400 shrink-0 mt-0.5" />
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-slate-800/40 rounded-2xl p-6 border border-slate-700/50"
+                  >
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                      <span className="w-2 h-6 bg-red-400 rounded-full"></span>
+                      Missing Pieces
+                    </h3>
+                    <ul className="space-y-3">
+                      {result.weaknesses.map((item, i) => (
+                        <li key={i} className="flex items-start gap-3 text-slate-300 text-sm">
+                          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </motion.div>
+                </div>
+
+                {/* Advice Section */}
                 <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="bg-slate-800/40 rounded-2xl p-6 border border-slate-700/50"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
                 >
-                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <span className="w-2 h-6 bg-red-400 rounded-full"></span>
-                    Missing Pieces
-                  </h3>
-                  <ul className="space-y-3">
-                    {result.weaknesses.map((item, i) => (
-                      <li key={i} className="flex items-start gap-3 text-slate-300 text-sm">
-                        <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
+                  <h3 className="text-xl font-bold text-white mb-6 text-center">Consulting Advice</h3>
+                  <AdviceAccordion items={result.advice} />
                 </motion.div>
-              </div>
 
-              {/* Advice Section */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-              >
-                <h3 className="text-xl font-bold text-white mb-6 text-center">Consulting Advice</h3>
-                <AdviceAccordion items={result.advice} />
               </motion.div>
-
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            )}
+          </AnimatePresence>
+        </div>
+      </SignedIn>
     </div>
   );
 }

@@ -26,6 +26,7 @@ module "analyzer_lambda" {
     GEMINI_SECRET_NAME = "gemini-key"
     APP_CLIENT_SECRET  = var.app_client_secret
     MODEL_NAME         = var.gemini_model_name
+    CLERK_ISSUER_URL   = var.clerk_issuer_url
   }
   enable_function_url = true
   allowed_origins     = var.allowed_origins
