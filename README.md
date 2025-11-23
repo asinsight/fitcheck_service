@@ -14,11 +14,11 @@ FitCheck automates the resume screening process by:
 
 ### High-Level Flow
 ```
-User → API Gateway → Scraper Lambda → BrightData API
-                                          ↓
+User (Frontend) → Clerk (Auth) → JWT Token
+       ↓
 User → Function URL → Analyzer Lambda → Gemini API
                           ↑
-                   CV PDF + Job URL
+                   CV PDF + Job URL + JWT
                           ↓
                    HTML Report
 ```
@@ -41,7 +41,7 @@ User → Function URL → Analyzer Lambda → Gemini API
      - Candidate strengths
      - Gap analysis
      - Actionable consulting advice
-   - Protected by custom `x-fitcheck-auth` header
+   - Protected by **Clerk JWT Authentication** (Bearer Token)
 
 3. **API Gateway**
    - `POST /scrape?type={type}` - Job scraping endpoint (API key protected)
@@ -55,6 +55,11 @@ User → Function URL → Analyzer Lambda → Gemini API
 5. **AWS Secrets Manager**
    - Stores BrightData API credentials
    - Stores Google Gemini API key
+
+6. **Clerk Authentication**
+   - Manages user sign-up/sign-in
+   - Issues JWT tokens for API access
+   - Provides UI components (SignIn, UserButton)
 
 ## Project Structure
 
@@ -115,6 +120,7 @@ fitcheck_poc/
 ### Third-Party APIs
 - [BrightData](https://brightdata.com/) account and API key
 - [Google AI Studio](https://aistudio.google.com/) Gemini API key
+- [Clerk](https://clerk.com/) account and Publishable Key / Issuer URL
 
 ## Setup
 
@@ -181,8 +187,8 @@ docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/fitcheck-scraper-repo:l
 ```bash
 cd terraform
 terraform init
-terraform plan -var="app_client_secret=YOUR_RANDOM_SECRET_HERE"
-terraform apply -var="app_client_secret=YOUR_RANDOM_SECRET_HERE"
+terraform plan -var="app_client_secret=YOUR_RANDOM_SECRET_HERE" -var="clerk_issuer_url=https://clerk.your-app.com"
+terraform apply -var="app_client_secret=YOUR_RANDOM_SECRET_HERE" -var="clerk_issuer_url=https://clerk.your-app.com"
 ```
 
 Generate a strong secret:
@@ -194,7 +200,25 @@ openssl rand -hex 32
 -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 32 | % {[char]$_})
 ```
 
-### 6. Retrieve Credentials
+### 6. Frontend Setup
+
+1. Navigate to `fitcheck-frontend`:
+   ```bash
+   cd fitcheck-frontend
+   npm install
+   ```
+
+2. Create `.env` file:
+   ```env
+   VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+   ```
+
+3. Run locally:
+   ```bash
+   npm run dev
+   ```
+
+### 7. Retrieve Credentials
 
 After deployment, get the API endpoints and credentials:
 
@@ -227,6 +251,7 @@ curl -X POST "https://<api-gateway-id>.execute-api.us-east-1.amazonaws.com/scrap
 export CV_BASE64=$(cat resume.pdf | base64 -w 0)
 
 curl -X POST "<ANALYZER_FUNCTION_URL>" \
+  -H "Authorization: Bearer <CLERK_JWT_TOKEN>" \
   -H "x-fitcheck-auth: <APP_CLIENT_SECRET>" \
   -H "Content-Type: application/json" \
   -d "{
@@ -254,6 +279,7 @@ with open('resume.pdf', 'rb') as f:
 response = requests.post(
     'https://your-function-url.lambda-url.us-east-1.on.aws/',
     headers={
+        'Authorization': 'Bearer <CLERK_JWT_TOKEN>',
         'x-fitcheck-auth': 'your-app-client-secret',
         'Content-Type': 'application/json'
     },
@@ -277,6 +303,7 @@ Key Terraform variables (see `terraform/variables.tf`):
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `app_client_secret` | Authentication secret for Analyzer | (required) |
+| `clerk_issuer_url` | Clerk Issuer URL for JWT verification | (required) |
 | `allowed_origins` | CORS origins for Analyzer | `["*"]` |
 
 ### Environment Variables (Lambda)
@@ -287,6 +314,7 @@ Key Terraform variables (see `terraform/variables.tf`):
 **Analyzer Lambda**:
 - `GEMINI_SECRET_NAME`: Name of Gemini API secret in Secrets Manager
 - `APP_CLIENT_SECRET`: Authentication secret for Function URL
+- `CLERK_ISSUER_URL`: URL to fetch Clerk JWKS for token verification
 
 ## Outputs
 
@@ -301,7 +329,7 @@ After `terraform apply`, you'll get:
 ## Security Considerations
 
 - **API Keys**: Scraper uses AWS-managed API Gateway API Keys
-- **Custom Auth**: Analyzer uses application-level `x-fitcheck-auth` header validation
+- **Authentication**: Analyzer uses **Clerk JWT** + `x-fitcheck-auth` header
 - **Secrets**: All API credentials stored in AWS Secrets Manager
 - **CORS**: Configure `allowed_origins` to restrict web access
 - **Usage Plans**: Rate limiting prevents abuse (10K/month, 50 req/sec)
