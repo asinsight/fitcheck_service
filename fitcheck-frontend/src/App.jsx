@@ -307,7 +307,6 @@ function App() {
   const [file, setFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
-  const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
   const [result, setResult] = useState(null);
   const [revisedCvPdf, setRevisedCvPdf] = useState(null);
   const [error, setError] = useState(null);
