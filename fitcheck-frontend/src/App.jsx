@@ -261,39 +261,24 @@ const ScoreGauge = ({ score }) => {
   );
 };
 
-const AdviceAccordion = ({ items }) => {
-  const [openIndex, setOpenIndex] = useState(0);
-
+const AdviceList = ({ items }) => {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {items.map((item, idx) => (
-        <div key={idx} className="bg-slate-800/50 rounded-lg overflow-hidden border border-slate-700/50">
-          <button
-            onClick={() => setOpenIndex(openIndex === idx ? -1 : idx)}
-            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-800 transition-colors"
-          >
-            <span className="font-medium text-slate-200 flex items-center gap-3">
-              <span className="w-6 h-6 rounded-full bg-slate-700 text-xs flex items-center justify-center text-lime-400 font-bold">
-                {idx + 1}
-              </span>
-              {item.title}
-            </span>
-            {openIndex === idx ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-          </button>
-          <AnimatePresence>
-            {openIndex === idx && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="px-4 pb-4 pt-0 text-slate-400 text-sm leading-relaxed pl-[3.25rem]">
-                  {item.content}
-                </div>
-              </motion.div>
+        <div key={idx} className="bg-slate-800/50 rounded-xl p-5 border border-slate-700/50 flex gap-4">
+          <div className="shrink-0 w-8 h-8 rounded-full bg-lime-400/10 text-lime-400 flex items-center justify-center font-bold text-sm border border-lime-400/20">
+            {idx + 1}
+          </div>
+          <div className="space-y-2 flex-1">
+            {item.content ? (
+              <>
+                <h4 className="font-bold text-slate-200">{item.title}</h4>
+                <p className="text-slate-400 text-sm leading-relaxed">{item.content}</p>
+              </>
+            ) : (
+              <p className="text-slate-300 font-medium leading-relaxed">{item.title}</p>
             )}
-          </AnimatePresence>
+          </div>
         </div>
       ))}
     </div>
@@ -587,7 +572,7 @@ function App() {
                   transition={{ delay: 0.4 }}
                 >
                   <h3 className="text-xl font-bold text-white mb-6 text-center">Consulting Advice</h3>
-                  <AdviceAccordion items={result.advice} />
+                  <AdviceList items={result.advice} />
                 </motion.div>
 
                 {/* Download Revised CV Button */}
