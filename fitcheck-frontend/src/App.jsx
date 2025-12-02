@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileText, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Link as LinkIcon, X } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Link as LinkIcon, X, Download } from 'lucide-react';
 import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, RedirectToSignIn } from "@clerk/clerk-react";
 import LandingPage from './components/LandingPage';
 import clsx from 'clsx';
@@ -261,39 +261,24 @@ const ScoreGauge = ({ score }) => {
   );
 };
 
-const AdviceAccordion = ({ items }) => {
-  const [openIndex, setOpenIndex] = useState(0);
-
+const AdviceList = ({ items }) => {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {items.map((item, idx) => (
-        <div key={idx} className="bg-slate-800/50 rounded-lg overflow-hidden border border-slate-700/50">
-          <button
-            onClick={() => setOpenIndex(openIndex === idx ? -1 : idx)}
-            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-800 transition-colors"
-          >
-            <span className="font-medium text-slate-200 flex items-center gap-3">
-              <span className="w-6 h-6 rounded-full bg-slate-700 text-xs flex items-center justify-center text-lime-400 font-bold">
-                {idx + 1}
-              </span>
-              {item.title}
-            </span>
-            {openIndex === idx ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-          </button>
-          <AnimatePresence>
-            {openIndex === idx && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="px-4 pb-4 pt-0 text-slate-400 text-sm leading-relaxed pl-[3.25rem]">
-                  {item.content}
-                </div>
-              </motion.div>
+        <div key={idx} className="bg-slate-800/50 rounded-xl p-5 border border-slate-700/50 flex gap-4">
+          <div className="shrink-0 w-8 h-8 rounded-full bg-lime-400/10 text-lime-400 flex items-center justify-center font-bold text-sm border border-lime-400/20">
+            {idx + 1}
+          </div>
+          <div className="space-y-2 flex-1">
+            {item.content ? (
+              <>
+                <h4 className="font-bold text-slate-200">{item.title}</h4>
+                <p className="text-slate-400 text-sm leading-relaxed">{item.content}</p>
+              </>
+            ) : (
+              <p className="text-slate-300 font-medium leading-relaxed">{item.title}</p>
             )}
-          </AnimatePresence>
+          </div>
         </div>
       ))}
     </div>
@@ -308,6 +293,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
   const [result, setResult] = useState(null);
+  const [revisedCvPdf, setRevisedCvPdf] = useState(null);
   const [error, setError] = useState(null);
   const { getToken } = useAuth();
 
@@ -333,6 +319,7 @@ function App() {
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setRevisedCvPdf(null);
 
     try {
       // Convert file to base64
@@ -363,9 +350,13 @@ function App() {
             throw new Error(errData.error || `Analysis failed with status ${response.status}`);
           }
 
-          const html = await response.text();
-          const data = parseHtmlResponse(html);
-          setResult(data);
+          const data = await response.json();
+          const parsedResult = parseHtmlResponse(data.html_report);
+          setResult(parsedResult);
+
+          if (data.pdf_base64) {
+            setRevisedCvPdf(data.pdf_base64);
+          }
 
         } catch (err) {
           console.error(err);
@@ -383,6 +374,32 @@ function App() {
     } catch (err) {
       setError(err.message);
       setIsLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (!revisedCvPdf) return;
+
+    try {
+      const byteCharacters = atob(revisedCvPdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'FitCheck_Revised_CV.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error("Download failed", e);
+      setError("Failed to download PDF.");
     }
   };
 
@@ -555,8 +572,26 @@ function App() {
                   transition={{ delay: 0.4 }}
                 >
                   <h3 className="text-xl font-bold text-white mb-6 text-center">Consulting Advice</h3>
-                  <AdviceAccordion items={result.advice} />
+                  <AdviceList items={result.advice} />
                 </motion.div>
+
+                {/* Download Revised CV Button */}
+                {revisedCvPdf && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="flex justify-center pt-8"
+                  >
+                    <button
+                      onClick={handleDownloadPdf}
+                      className="flex items-center gap-2 bg-lime-400 text-slate-900 px-6 py-3 rounded-xl font-bold hover:bg-lime-300 transition-colors shadow-lg shadow-lime-900/20"
+                    >
+                      <Download className="w-5 h-5" />
+                      Download Revised CV (PDF)
+                    </button>
+                  </motion.div>
+                )}
 
               </motion.div>
             )}
