@@ -11,6 +11,12 @@ from pypdf import PdfReader
 import jwt
 from jwt.algorithms import RSAAlgorithm
 import requests
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # Configure logging
 logger = logging.getLogger()
@@ -113,7 +119,8 @@ def calculate_similarity(cv_text: str, job_description: str, api_key: str) -> Tu
                 "soft_skills": <score_0_to_100>,
                 "education": <score_0_to_100>
             }},
-            "weighted_average_score": <calculated_score>
+            "weighted_average_score": <calculated_score>,
+            "rewritten_cv_markdown": "<markdown_text_of_revised_cv>"
         }}
     """
 
@@ -134,11 +141,13 @@ def calculate_similarity(cv_text: str, job_description: str, api_key: str) -> Tu
         education = float(breakdown.get("education", 0))
         weighted_average_score = float(data.get("weighted_average_score", 0))
         
-        return weighted_average_score, hard_skills, experience, soft_skills, education
+        rewritten_cv_markdown = data.get("rewritten_cv_markdown", "")
+        
+        return weighted_average_score, hard_skills, experience, soft_skills, education, rewritten_cv_markdown
         
     except Exception as e:
         logger.error(f"Error in calculate_similarity: {str(e)}")
-        return 0.0, 0.0, 0.0, 0.0, 0.0
+        return 0.0, 0.0, 0.0, 0.0, 0.0, ""
 
 def invoke_scraper(job_url: str) -> Dict[str, Any]:
     """
@@ -270,8 +279,59 @@ def generate_html_report(similarity_score: float, strengths: List[str], weakness
     
     return html_report
 
+def generate_pdf(markdown_text: str) -> str:
+    """
+    Generate PDF from markdown text and return base64 string.
+    """
+    try:
+        pdf_path = "/tmp/revised_cv.pdf"
+        
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+        styles = getSampleStyleSheet()
+        story = []
+        
+        # Custom style for the body
+        body_style = ParagraphStyle(
+            'Body',
+            parent=styles['Normal'],
+            fontSize=10,
+            leading=14,
+            spaceAfter=10
+        )
+        
+        # Simple markdown-like parsing (very basic)
+        lines = markdown_text.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            if line.startswith('# '):
+                story.append(Paragraph(html_escape(line[2:]), styles['Heading1']))
+            elif line.startswith('## '):
+                story.append(Paragraph(html_escape(line[3:]), styles['Heading2']))
+            elif line.startswith('### '):
+                story.append(Paragraph(html_escape(line[4:]), styles['Heading3']))
+            elif line.startswith('- ') or line.startswith('* '):
+                story.append(Paragraph(f"• {html_escape(line[2:])}", body_style))
+            else:
+                story.append(Paragraph(html_escape(line), body_style))
+            
+            story.append(Spacer(1, 6))
+
+        doc.build(story)
+        
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+            
+        return base64.b64encode(pdf_bytes).decode('utf-8')
+        
+    except Exception as e:
+        logger.error(f"Error generating PDF: {str(e)}")
+        return ""
+
 def analyze_with_gemini(api_key: str, cv_text: str, job_description: str, similarity_score: float,
-                        hard_skills: float, experience: float, soft_skills: float, education: float) -> str:
+                        hard_skills: float, experience: float, soft_skills: float, education: float, rewritten_cv_markdown: str) -> Dict[str, Any]:
     """
     Use Gemini to analyze the CV against the Job Description and return HTML report.
     """
@@ -326,7 +386,14 @@ def analyze_with_gemini(api_key: str, cv_text: str, job_description: str, simila
             education=education
         )
         
-        return html_report
+        pdf_base64 = ""
+        if rewritten_cv_markdown:
+            pdf_base64 = generate_pdf(rewritten_cv_markdown)
+
+        return {
+            "html_report": html_report,
+            "pdf_base64": pdf_base64
+        }
     except Exception as e:
         logger.error(f"Gemini analysis failed: {str(e)}")
         raise e
@@ -407,17 +474,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info(f"Retrieved job description ({len(job_description)} chars)")
 
         # 4. Calculate Similarity
-        similarity_score, hard_skills, experience, soft_skills, education = calculate_similarity(cv_text, job_description, gemini_key)
+        similarity_score, hard_skills, experience, soft_skills, education, rewritten_cv_markdown = calculate_similarity(cv_text, job_description, gemini_key)
         logger.info(f"Calculated similarity: {similarity_score}")
         logger.info(f"Breakdown: Hard Skills={hard_skills}, Experience={experience}, Soft Skills={soft_skills}, Education={education}")
 
         # 5. Analyze with Gemini and get HTML report
-        html_report = analyze_with_gemini(gemini_key, cv_text, job_description, similarity_score, hard_skills, experience, soft_skills, education)
+        result = analyze_with_gemini(gemini_key, cv_text, job_description, similarity_score, hard_skills, experience, soft_skills, education, rewritten_cv_markdown)
 
         return {
             'statusCode': 200,
-            'headers': {'Content-Type': 'text/html; charset=utf-8'},
-            'body': html_report
+            'headers': {'Content-Type': 'application/json'},
+            'body': json.dumps(result)
         }
 
     except Exception as e:

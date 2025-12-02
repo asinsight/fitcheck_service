@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileText, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Link as LinkIcon, X } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Link as LinkIcon, X, Download } from 'lucide-react';
 import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, RedirectToSignIn } from "@clerk/clerk-react";
 import LandingPage from './components/LandingPage';
 import clsx from 'clsx';
@@ -307,7 +307,9 @@ function App() {
   const [file, setFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
+  const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
   const [result, setResult] = useState(null);
+  const [revisedCvPdf, setRevisedCvPdf] = useState(null);
   const [error, setError] = useState(null);
   const { getToken } = useAuth();
 
@@ -333,6 +335,7 @@ function App() {
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setRevisedCvPdf(null);
 
     try {
       // Convert file to base64
@@ -363,9 +366,13 @@ function App() {
             throw new Error(errData.error || `Analysis failed with status ${response.status}`);
           }
 
-          const html = await response.text();
-          const data = parseHtmlResponse(html);
-          setResult(data);
+          const data = await response.json();
+          const parsedResult = parseHtmlResponse(data.html_report);
+          setResult(parsedResult);
+
+          if (data.pdf_base64) {
+            setRevisedCvPdf(data.pdf_base64);
+          }
 
         } catch (err) {
           console.error(err);
@@ -383,6 +390,32 @@ function App() {
     } catch (err) {
       setError(err.message);
       setIsLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    if (!revisedCvPdf) return;
+
+    try {
+      const byteCharacters = atob(revisedCvPdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'FitCheck_Revised_CV.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error("Download failed", e);
+      setError("Failed to download PDF.");
     }
   };
 
@@ -557,6 +590,24 @@ function App() {
                   <h3 className="text-xl font-bold text-white mb-6 text-center">Consulting Advice</h3>
                   <AdviceAccordion items={result.advice} />
                 </motion.div>
+
+                {/* Download Revised CV Button */}
+                {revisedCvPdf && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="flex justify-center pt-8"
+                  >
+                    <button
+                      onClick={handleDownloadPdf}
+                      className="flex items-center gap-2 bg-lime-400 text-slate-900 px-6 py-3 rounded-xl font-bold hover:bg-lime-300 transition-colors shadow-lg shadow-lime-900/20"
+                    >
+                      <Download className="w-5 h-5" />
+                      Download Revised CV (PDF)
+                    </button>
+                  </motion.div>
+                )}
 
               </motion.div>
             )}
